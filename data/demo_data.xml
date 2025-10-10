@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Demo Partner: Toufik -->
+        <record id="partner_toufik" model="res.partner">
+            <field name="name">Toufik</field>
+            <field name="email">toufik@example.com</field>
+            <field name="phone">+1234567890</field>
+            <field name="customer_rank">1</field>
+            <field name="is_company" eval="False"/>
+        </record>
+
+        <!-- Demo Product: Chocolate -->
+        <record id="product_chocolate" model="product.product">
+            <field name="name">Chocolate</field>
+            <field name="type">product</field>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="list_price">10.0</field>
+            <field name="standard_price">5.0</field>
+            <field name="default_code">CHOC-001</field>
+        </record>
+
+        <!-- Demo Product: Apple -->
+        <record id="product_apple" model="product.product">
+            <field name="name">Apple</field>
+            <field name="type">product</field>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="list_price">2.5</field>
+            <field name="standard_price">1.0</field>
+            <field name="default_code">APPLE-001</field>
+        </record>
+
+        <!-- Demo Product: Orange -->
+        <record id="product_orange" model="product.product">
+            <field name="name">Orange</field>
+            <field name="type">product</field>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="True"/>
+            <field name="list_price">3.0</field>
+            <field name="standard_price">1.5</field>
+            <field name="default_code">ORANGE-001</field>
+        </record>
+
+    </data>
+</odoo>

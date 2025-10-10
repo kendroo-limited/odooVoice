@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Root Menu -->
+    <menuitem id="menu_voice_command_root"
+              name="Voice Commands"
+              sequence="100"
+              web_icon="voice_command_hub,static/description/icon.png"/>
+
+    <!-- Voice Command Sessions -->
+    <menuitem id="menu_voice_command_session"
+              name="Command Sessions"
+              parent="menu_voice_command_root"
+              action="action_voice_command_session"
+              sequence="10"/>
+
+    <!-- Intent Templates -->
+    <menuitem id="menu_voice_intent_template"
+              name="Intent Templates"
+              parent="menu_voice_command_root"
+              action="action_voice_intent_template"
+              sequence="20"/>
+
+    <!-- Logs -->
+    <menuitem id="menu_voice_command_log"
+              name="Logs"
+              parent="menu_voice_command_root"
+              action="action_voice_command_log"
+              sequence="30"/>
+
+    <!-- Configuration -->
+    <menuitem id="menu_voice_command_config"
+              name="Configuration"
+              parent="menu_voice_command_root"
+              sequence="100"/>
+
+</odoo>

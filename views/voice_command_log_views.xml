@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Tree View -->
+    <record id="view_voice_command_log_tree" model="ir.ui.view">
+        <field name="name">voice.command.log.tree</field>
+        <field name="model">voice.command.log</field>
+        <field name="arch" type="xml">
+            <tree string="Voice Command Logs" create="false" edit="false">
+                <field name="timestamp"/>
+                <field name="session_id"/>
+                <field name="user_id"/>
+                <field name="level" decoration-danger="level == 'error'"
+                       decoration-warning="level == 'warning'"/>
+                <field name="message"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="view_voice_command_log_form" model="ir.ui.view">
+        <field name="name">voice.command.log.form</field>
+        <field name="model">voice.command.log</field>
+        <field name="arch" type="xml">
+            <form string="Voice Command Log" create="false" edit="false">
+                <sheet>
+                    <group>
+                        <field name="timestamp"/>
+                        <field name="session_id"/>
+                        <field name="user_id"/>
+                        <field name="level"/>
+                    </group>
+                    <group>
+                        <field name="message"/>
+                        <field name="payload_json" widget="ace" options="{'mode': 'json'}"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_voice_command_log" model="ir.actions.act_window">
+        <field name="name">Voice Command Logs</field>
+        <field name="res_model">voice.command.log</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+</odoo>

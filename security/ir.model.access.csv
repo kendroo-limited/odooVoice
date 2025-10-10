@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_voice_command_session_all,voice.command.session.all,model_voice_command_session,,1,1,1,1
+access_voice_command_log_all,voice.command.log.all,model_voice_command_log,,1,1,1,1
+access_voice_intent_template_all,voice.intent.template.all,model_voice_intent_template,,1,1,1,1
+access_voice_command_training_all,voice.command.training.all,model_voice_command_training,,1,1,1,1
+access_voice_user_preference_all,voice.user.preference.all,model_voice_user_preference,,1,1,1,1
+access_voice_command_feedback_all,voice.command.feedback.all,model_voice_command_feedback,,1,1,1,1

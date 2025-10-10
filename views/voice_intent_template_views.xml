@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_voice_intent_template_form" model="ir.ui.view">
+        <field name="name">voice.intent.template.form</field>
+        <field name="model">voice.intent.template</field>
+        <field name="arch" type="xml">
+            <form string="Voice Intent Template">
+                <header>
+                    <button name="action_test_intent" string="Test Intent" type="object" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                            <field name="active" widget="boolean_button" options='{"terminology": "archive"}'/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Intent Name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="key"/>
+                            <field name="category"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="risk_level_default"/>
+                            <field name="confirm_policy"/>
+                            <field name="usage_count"/>
+                            <field name="last_used"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="description" placeholder="Describe what this intent does..."/>
+                    </group>
+                    <notebook>
+                        <page string="Training Phrases" name="phrases">
+                            <field name="training_phrases" widget="text"
+                                   placeholder="Enter example phrases (one per line)&#10;Example:&#10;Toufik buy a chocolate from me&#10;sell 5 chocolates to John&#10;create sale order for ABC company"/>
+                        </page>
+                        <page string="Slot Schema" name="schema">
+                            <field name="slot_schema_json" widget="ace" options="{'mode': 'json'}"
+                                   placeholder='{&#10;  "partner": {&#10;    "required": true,&#10;    "type": "partner",&#10;    "question": "Who is the customer?"&#10;  }&#10;}'/>
+                        </page>
+                        <page string="Handler" name="handler">
+                            <field name="handler_python" widget="ace" options="{'mode': 'python'}"
+                                   placeholder="Python code or dotted path to handler"/>
+                        </page>
+                        <page string="Security" name="security">
+                            <group>
+                                <field name="required_modules"/>
+                                <field name="required_groups" widget="many2many_tags"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_voice_intent_template_tree" model="ir.ui.view">
+        <field name="name">voice.intent.template.tree</field>
+        <field name="model">voice.intent.template</field>
+        <field name="arch" type="xml">
+            <tree string="Voice Intent Templates">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="key"/>
+                <field name="category"/>
+                <field name="risk_level_default"/>
+                <field name="usage_count"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_voice_intent_template" model="ir.actions.act_window">
+        <field name="name">Intent Templates</field>
+        <field name="res_model">voice.intent.template</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+</odoo>

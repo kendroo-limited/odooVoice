@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_voice_command_session_form" model="ir.ui.view">
+        <field name="name">voice.command.session.form</field>
+        <field name="model">voice.command.session</field>
+        <field name="arch" type="xml">
+            <form string="Voice Command Session">
+                <header>
+                    <button name="action_parse" string="Parse Command" type="object"
+                            class="oe_highlight" invisible="state != 'collecting'"/>
+                    <button name="action_simulate" string="Simulate" type="object"
+                            class="oe_highlight" invisible="state != 'ready'"/>
+                    <button name="action_confirm" string="Confirm" type="object"
+                            invisible="state != 'ready' or not confirmation_required"/>
+                    <button name="action_execute" string="Execute" type="object"
+                            class="oe_highlight"
+                            invisible="state != 'ready' or (confirmation_required and not confirmed_by_user)"/>
+                    <button name="action_abort" string="Abort" type="object"
+                            invisible="state not in ['collecting', 'ready']"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                            <field name="active" widget="boolean_button" options='{"terminology": "archive"}'/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="user_id" readonly="1"/>
+                            <field name="intent_key" readonly="1"/>
+                            <field name="risk_level" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="create_date" readonly="1"/>
+                            <field name="dry_run"/>
+                            <field name="confirmation_required" readonly="1"/>
+                            <field name="confirmed_by_user" readonly="1"
+                                   invisible="not confirmation_required"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Command" name="command">
+                            <group>
+                                <field name="transcript" widget="text" placeholder="Enter your command..."/>
+                            </group>
+                            <group string="Extracted Slots" invisible="not slots_json">
+                                <field name="slots_json" widget="ace" options="{'mode': 'json'}"/>
+                            </group>
+                            <group string="Missing Information" invisible="not missing_slots_json">
+                                <field name="missing_slots_json" widget="ace" options="{'mode': 'json'}"/>
+                            </group>
+                        </page>
+                        <page string="Execution Plan" name="plan"
+                              invisible="not execution_plan">
+                            <field name="execution_plan" widget="ace" options="{'mode': 'json'}"/>
+                        </page>
+                        <page string="Result" name="result"
+                              invisible="state not in ['executed', 'aborted']">
+                            <group>
+                                <field name="result_summary" widget="html"/>
+                                <field name="execution_result" widget="ace" options="{'mode': 'json'}"/>
+                                <field name="error_message" invisible="not error_message"/>
+                            </group>
+                        </page>
+                        <page string="Logs" name="logs">
+                            <field name="log_ids">
+                                <tree>
+                                    <field name="timestamp"/>
+                                    <field name="level" decoration-danger="level == 'error'"
+                                           decoration-warning="level == 'warning'"
+                                           decoration-info="level == 'info'"/>
+                                    <field name="message"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_voice_command_session_tree" model="ir.ui.view">
+        <field name="name">voice.command.session.tree</field>
+        <field name="model">voice.command.session</field>
+        <field name="arch" type="xml">
+            <tree string="Voice Command Sessions">
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="transcript"/>
+                <field name="intent_key"/>
+                <field name="risk_level" decoration-danger="risk_level == 'high'"
+                       decoration-warning="risk_level == 'medium'"/>
+                <field name="state" decoration-info="state == 'collecting'"
+                       decoration-success="state == 'executed'"
+                       decoration-warning="state == 'ready'"
+                       decoration-danger="state == 'aborted'"/>
+                <field name="create_date"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_voice_command_session_search" model="ir.ui.view">
+        <field name="name">voice.command.session.search</field>
+        <field name="model">voice.command.session</field>
+        <field name="arch" type="xml">
+            <search string="Voice Command Sessions">
+                <field name="name"/>
+                <field name="transcript"/>
+                <field name="user_id"/>
+                <field name="intent_key"/>
+                <filter name="my_sessions" string="My Sessions"
+                        domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="collecting" string="Collecting"
+                        domain="[('state', '=', 'collecting')]"/>
+                <filter name="ready" string="Ready"
+                        domain="[('state', '=', 'ready')]"/>
+                <filter name="executed" string="Executed"
+                        domain="[('state', '=', 'executed')]"/>
+                <filter name="aborted" string="Aborted"
+                        domain="[('state', '=', 'aborted')]"/>
+                <separator/>
+                <filter name="high_risk" string="High Risk"
+                        domain="[('risk_level', '=', 'high')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_user" string="User"
+                            context="{'group_by': 'user_id'}"/>
+                    <filter name="group_intent" string="Intent"
+                            context="{'group_by': 'intent_key'}"/>
+                    <filter name="group_state" string="State"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_risk" string="Risk Level"
+                            context="{'group_by': 'risk_level'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_voice_command_session" model="ir.actions.act_window">
+        <field name="name">Voice Command Sessions</field>
+        <field name="res_model">voice.command.session</field>
+        <field name="view_mode">tree,form</field>
+        <field name="context">{'search_default_my_sessions': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first voice command
+            </p>
+            <p>
+                Enter a natural language command to perform Odoo operations.<br/>
+                Examples:<br/>
+                - "Toufik buy 5 chocolates from me"<br/>
+                - "I buy 100 chocolate for selling, update the inventory"<br/>
+                - "Create a lead for John Doe"
+            </p>
+        </field>
+    </record>
+
+</odoo>

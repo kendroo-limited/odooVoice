@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Sale Create Intent -->
+        <record id="intent_sale_create" model="voice.intent.template">
+            <field name="name">Create Sale Order</field>
+            <field name="key">sale_create</field>
+            <field name="category">sales</field>
+            <field name="sequence">10</field>
+            <field name="description">Create and optionally confirm a sale order</field>
+            <field name="risk_level_default">medium</field>
+            <field name="confirm_policy">threshold</field>
+            <field name="required_modules">sale_management</field>
+            <field name="training_phrases">Toufik buy a chocolate from me
+sell 5 chocolates to John
+create sale order for ABC company
+invoice John for 10 apples
+John bought 3 oranges from me</field>
+            <field name="slot_schema_json">{
+  "partner": {
+    "required": true,
+    "type": "partner",
+    "question": "Who is the customer?",
+    "help": "Customer name, email, or phone number"
+  },
+  "product_lines": {
+    "required": true,
+    "type": "product_lines",
+    "question": "What products and quantities?",
+    "help": "Product name and quantity (e.g., 5 chocolates)"
+  },
+  "confirm": {
+    "required": false,
+    "type": "boolean",
+    "default": true,
+    "question": "Confirm the order immediately?"
+  },
+  "invoice_now": {
+    "required": false,
+    "type": "boolean",
+    "default": false,
+    "question": "Create and post invoice now?"
+  }
+}</field>
+        </record>
+
+        <!-- Inventory Adjust Intent -->
+        <record id="intent_inventory_adjust" model="voice.intent.template">
+            <field name="name">Adjust Inventory</field>
+            <field name="key">inventory_adjust</field>
+            <field name="category">inventory</field>
+            <field name="sequence">20</field>
+            <field name="description">Update inventory quantities</field>
+            <field name="risk_level_default">medium</field>
+            <field name="confirm_policy">threshold</field>
+            <field name="required_modules">stock</field>
+            <field name="training_phrases">I buy 100 chocolate for selling update the inventory
+update inventory 50 apples
+add 200 units to stock
+increase chocolate inventory by 100</field>
+            <field name="slot_schema_json">{
+  "product": {
+    "required": true,
+    "type": "product",
+    "question": "Which product?"
+  },
+  "qty_delta": {
+    "required": true,
+    "type": "quantity",
+    "question": "How many units to add or remove?"
+  },
+  "location": {
+    "required": false,
+    "type": "text",
+    "question": "Which location?"
+  }
+}</field>
+        </record>
+
+        <!-- Purchase Create Intent -->
+        <record id="intent_purchase_create" model="voice.intent.template">
+            <field name="name">Create Purchase Order</field>
+            <field name="key">purchase_create</field>
+            <field name="category">purchase</field>
+            <field name="sequence">30</field>
+            <field name="description">Create and optionally confirm a purchase order</field>
+            <field name="risk_level_default">medium</field>
+            <field name="confirm_policy">threshold</field>
+            <field name="required_modules">purchase</field>
+            <field name="training_phrases">I buy 100 units from ABC Supplier
+purchase 50 chocolates from vendor
+create purchase order for apples</field>
+            <field name="slot_schema_json">{
+  "vendor": {
+    "required": true,
+    "type": "partner",
+    "question": "Who is the vendor?"
+  },
+  "product_lines": {
+    "required": true,
+    "type": "product_lines",
+    "question": "What products and quantities?"
+  },
+  "confirm": {
+    "required": false,
+    "type": "boolean",
+    "default": false,
+    "question": "Confirm the purchase order?"
+  }
+}</field>
+        </record>
+
+        <!-- CRM Lead Create Intent -->
+        <record id="intent_crm_lead_create" model="voice.intent.template">
+            <field name="name">Create CRM Lead</field>
+            <field name="key">crm_lead_create</field>
+            <field name="category">crm</field>
+            <field name="sequence">40</field>
+            <field name="description">Create a CRM lead or opportunity</field>
+            <field name="risk_level_default">low</field>
+            <field name="confirm_policy">never</field>
+            <field name="required_modules">crm</field>
+            <field name="training_phrases">create lead for John Doe
+new opportunity for ABC company
+add prospect Jane Smith</field>
+            <field name="slot_schema_json">{
+  "contact": {
+    "required": true,
+    "type": "text",
+    "question": "Contact name or company?"
+  },
+  "title": {
+    "required": false,
+    "type": "text",
+    "question": "Opportunity title?"
+  },
+  "expected_revenue": {
+    "required": false,
+    "type": "money",
+    "question": "Expected revenue?"
+  }
+}</field>
+        </record>
+
+    </data>
+</odoo>

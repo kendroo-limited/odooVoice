@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Voice Command Training Views -->
+
+    <!-- Training Example Form View -->
+    <record id="view_voice_training_form" model="ir.ui.view">
+        <field name="name">voice.command.training.form</field>
+        <field name="model">voice.command.training</field>
+        <field name="arch" type="xml">
+            <form string="Training Example">
+                <header>
+                    <button name="action_verify" string="Mark as Verified" type="object"
+                            class="btn-primary" invisible="verified"/>
+                    <button name="action_add_to_intent" string="Add to Intent Training" type="object"
+                            class="btn-success"/>
+                    <field name="verified" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="toggle_active" type="object" class="oe_stat_button" icon="fa-archive">
+                            <field name="active" widget="boolean_button"/>
+                        </button>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="name" placeholder="e.g., Toufik buy 5 chocolates from me"/>
+                            <field name="intent_id" options="{'no_create': True}"/>
+                            <field name="intent_key" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Expected Results">
+                            <group>
+                                <field name="expected_slots" widget="ace" options="{'mode': 'json'}"/>
+                            </group>
+                        </page>
+
+                        <page string="Performance">
+                            <group>
+                                <group>
+                                    <field name="times_used"/>
+                                    <field name="successful_matches"/>
+                                    <field name="failed_matches"/>
+                                </group>
+                                <group>
+                                    <field name="success_rate" widget="progressbar"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Learning Data">
+                            <group>
+                                <field name="alternative_phrasings" placeholder="One per line:&#10;John buy chocolate&#10;chocolate sale to John&#10;etc."/>
+                                <field name="common_errors" placeholder="Describe common mistakes users make"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Training Example Tree View -->
+    <record id="view_voice_training_tree" model="ir.ui.view">
+        <field name="name">voice.command.training.tree</field>
+        <field name="model">voice.command.training</field>
+        <field name="arch" type="xml">
+            <tree string="Training Examples" decoration-success="verified" decoration-muted="not active">
+                <field name="name"/>
+                <field name="intent_key"/>
+                <field name="times_used"/>
+                <field name="success_rate" widget="progressbar"/>
+                <field name="verified" widget="boolean_toggle"/>
+                <field name="active" column_invisible="1"/>
+                <field name="user_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Training Example Search View -->
+    <record id="view_voice_training_search" model="ir.ui.view">
+        <field name="name">voice.command.training.search</field>
+        <field name="model">voice.command.training</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="intent_id"/>
+                <field name="intent_key"/>
+                <filter name="verified" string="Verified" domain="[('verified', '=', True)]"/>
+                <filter name="unverified" string="Unverified" domain="[('verified', '=', False)]"/>
+                <filter name="my_training" string="My Examples" domain="[('user_id', '=', uid)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_intent" string="Intent" context="{'group_by': 'intent_id'}"/>
+                    <filter name="group_user" string="User" context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Training Example Action -->
+    <record id="action_voice_training" model="ir.actions.act_window">
+        <field name="name">Training Examples</field>
+        <field name="res_model">voice.command.training</field>
+        <field name="view_mode">tree,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No training examples yet!
+            </p>
+            <p>
+                Add training examples to improve voice command recognition.<br/>
+                The system will learn from these examples over time.
+            </p>
+        </field>
+    </record>
+
+    <!-- User Preferences Form View -->
+    <record id="view_voice_user_preference_form" model="ir.ui.view">
+        <field name="name">voice.user.preference.form</field>
+        <field name="model">voice.user.preference</field>
+        <field name="arch" type="xml">
+            <form string="My Voice Preferences">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="user_id" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Behavior Settings">
+                            <field name="auto_confirm"/>
+                            <field name="learn_from_corrections"/>
+                            <field name="suggest_alternatives"/>
+                        </group>
+                        <group string="Defaults">
+                            <field name="default_warehouse_id"/>
+                            <field name="default_pricelist_id"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Favorite Commands">
+                            <field name="favorite_commands" placeholder="Add your frequently used commands here (one per line):&#10;Toufik buy 10 chocolates from me&#10;Add 50 apples to inventory&#10;etc."/>
+                        </page>
+
+                        <page string="Custom Names">
+                            <group>
+                                <field name="preferred_product_names" widget="ace" options="{'mode': 'json'}"/>
+                                <field name="preferred_partner_names" widget="ace" options="{'mode': 'json'}"/>
+                            </group>
+                        </page>
+
+                        <page string="Statistics">
+                            <group>
+                                <group>
+                                    <field name="total_commands"/>
+                                    <field name="successful_commands"/>
+                                </group>
+                                <group>
+                                    <label for="command_history"/>
+                                    <div>
+                                        <field name="command_history" widget="ace" options="{'mode': 'json'}" readonly="1"/>
+                                    </div>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- User Preferences Action -->
+    <record id="action_voice_user_preference" model="ir.actions.act_window">
+        <field name="name">My Voice Preferences</field>
+        <field name="res_model">voice.user.preference</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'default_user_id': uid}</field>
+        <field name="domain">[('user_id', '=', uid)]</field>
+    </record>
+
+    <!-- Feedback Form View -->
+    <record id="view_voice_feedback_form" model="ir.ui.view">
+        <field name="name">voice.command.feedback.form</field>
+        <field name="model">voice.command.feedback</field>
+        <field name="arch" type="xml">
+            <form string="Command Feedback">
+                <header>
+                    <button name="action_apply_feedback" string="Apply to Training" type="object"
+                            class="btn-primary" invisible="processed"/>
+                    <field name="processed" widget="statusbar" statusbar_visible="False,True"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="session_id"/>
+                            <field name="feedback_type"/>
+                            <field name="user_id" readonly="1"/>
+                        </group>
+                        <group invisible="not processed">
+                            <field name="applied_date" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Correction Details" invisible="feedback_type != 'correction'">
+                        <group>
+                            <label for="original_intent" string="What was detected"/>
+                            <field name="original_intent" nolabel="1"/>
+                            <field name="original_slots" widget="ace" options="{'mode': 'json'}" nolabel="1"/>
+                        </group>
+                        <group>
+                            <label for="correct_intent" string="What it should be"/>
+                            <field name="correct_intent" nolabel="1"/>
+                            <field name="correct_slots" widget="ace" options="{'mode': 'json'}" nolabel="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Description">
+                        <field name="description" nolabel="1" placeholder="Describe the issue or suggestion..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Feedback Tree View -->
+    <record id="view_voice_feedback_tree" model="ir.ui.view">
+        <field name="name">voice.command.feedback.tree</field>
+        <field name="model">voice.command.feedback</field>
+        <field name="arch" type="xml">
+            <tree string="Feedback" decoration-info="not processed" decoration-success="processed">
+                <field name="session_id"/>
+                <field name="feedback_type"/>
+                <field name="description"/>
+                <field name="user_id"/>
+                <field name="processed" widget="boolean_toggle"/>
+                <field name="applied_date"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Feedback Action -->
+    <record id="action_voice_feedback" model="ir.actions.act_window">
+        <field name="name">User Feedback</field>
+        <field name="res_model">voice.command.feedback</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Menu Items -->
+    <menuitem id="menu_voice_training"
+              name="Training Examples"
+              parent="menu_voice_command_root"
+              action="action_voice_training"
+              sequence="40"/>
+
+    <menuitem id="menu_voice_user_preference"
+              name="My Preferences"
+              parent="menu_voice_command_root"
+              action="action_voice_user_preference"
+              sequence="50"/>
+
+    <menuitem id="menu_voice_feedback"
+              name="Feedback"
+              parent="menu_voice_command_root"
+              action="action_voice_feedback"
+              sequence="60"/>
+
+</odoo>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.voice.command</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='integration']" position="after">
+                <block title="Voice Command Hub" id="voice_command_hub_settings">
+                    <setting id="voice_command_enable_setting" string="Enable Voice Commands" help="Turn the voice command features on or off.">
+                        <field name="voice_command_enabled"/>
+                    </setting>
+                    <setting id="voice_command_language_setting" string="Command Language">
+                        <field name="voice_command_language"/>
+                    </setting>
+                </block>
+
+                <block title="Voice Command Confirmation" id="voice_command_confirmation_settings">
+                    <setting id="voice_command_confirm_high_setting" string="Confirm High-Risk Actions" help="Always require user confirmation before posting, payments, etc.">
+                        <field name="confirm_high_risk"/>
+                    </setting>
+                    <setting id="voice_command_confirm_medium_setting" string="Confirm Medium-Risk Actions" help="Require confirmation before validations and order confirmations.">
+                        <field name="confirm_medium_risk"/>
+                    </setting>
+                </block>
+
+                <block title="Voice Command Defaults" id="voice_command_defaults_settings">
+                    <setting id="voice_command_auto_create_partner_setting" string="Auto-create Partners" help="Create partners automatically if the command references an unknown contact.">
+                        <field name="auto_create_partner"/>
+                    </setting>
+                    <setting id="voice_command_auto_create_product_setting" string="Auto-create Products" help="Create products automatically if the command references an unknown item.">
+                        <field name="auto_create_product"/>
+                    </setting>
+                    <setting id="voice_command_default_warehouse_setting" string="Default Warehouse">
+                        <field name="voice_default_warehouse_id"/>
+                    </setting>
+                    <setting id="voice_command_default_location_setting" string="Default Location">
+                        <field name="voice_default_location_id"/>
+                    </setting>
+                    <setting id="voice_command_default_pricelist_setting" string="Default Pricelist">
+                        <field name="voice_default_pricelist_id"/>
+                    </setting>
+                </block>
+
+                <block title="Voice Command NLP" id="voice_command_nlp_settings">
+                    <setting id="voice_command_nlu_provider_setting" string="NLU Provider">
+                        <field name="nlu_provider"/>
+                    </setting>
+                    <setting id="voice_command_fuzzy_threshold_setting" string="Fuzzy Match Threshold" help="Minimum similarity ratio (0-1) when matching phrases.">
+                        <field name="fuzzy_match_threshold"/>
+                    </setting>
+                    <setting id="voice_command_product_synonyms_setting" string="Product Synonyms" help="Provide product synonyms in YAML format for better recognition.">
+                        <field name="product_synonyms"/>
+                    </setting>
+                    <setting id="voice_command_action_synonyms_setting" string="Action Synonyms" help="Provide action verb synonyms in YAML format for better recognition.">
+                        <field name="action_synonyms"/>
+                    </setting>
+                </block>
+
+                <block title="Voice Command Security &amp; Audit" id="voice_command_security_settings">
+                    <setting id="voice_command_restrict_groups_setting" string="Restrict to Specific Groups">
+                        <field name="restrict_to_groups"/>
+                    </setting>
+                    <setting id="voice_command_allowed_groups_setting" string="Allowed Groups" invisible="not restrict_to_groups">
+                        <field name="allowed_group_ids" widget="many2many_tags"/>
+                    </setting>
+                    <setting id="voice_command_log_retention_setting" string="Log Retention (Days)">
+                        <field name="log_retention_days"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

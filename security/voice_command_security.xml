@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Voice Command User Group -->
+    <record id="group_voice_command_user" model="res.groups">
+        <field name="name">Voice Command User</field>
+        <field name="category_id" ref="base.module_category_productivity"/>
+        <field name="comment">Can use voice commands for basic operations</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <!-- Voice Command Manager Group -->
+    <record id="group_voice_command_manager" model="res.groups">
+        <field name="name">Voice Command Manager</field>
+        <field name="category_id" ref="base.module_category_productivity"/>
+        <field name="comment">Can configure voice command intents and templates</field>
+        <field name="implied_ids" eval="[(4, ref('group_voice_command_user'))]"/>
+    </record>
+
+    <!-- Record Rules - UNRESTRICTED ACCESS FOR ALL USERS -->
+    <record id="voice_command_session_all_rule" model="ir.rule">
+        <field name="name">Voice Command Session: All users can see all sessions</field>
+        <field name="model_id" ref="model_voice_command_session"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="voice_command_log_all_rule" model="ir.rule">
+        <field name="name">Voice Command Log: All users can see all logs</field>
+        <field name="model_id" ref="model_voice_command_log"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="voice_intent_template_all_rule" model="ir.rule">
+        <field name="name">Voice Intent Template: All users can see all templates</field>
+        <field name="model_id" ref="model_voice_intent_template"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="voice_training_all_rule" model="ir.rule">
+        <field name="name">Voice Training: All users can see all training</field>
+        <field name="model_id" ref="model_voice_command_training"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="voice_preference_all_rule" model="ir.rule">
+        <field name="name">Voice Preference: All users can see all preferences</field>
+        <field name="model_id" ref="model_voice_user_preference"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+    <record id="voice_feedback_all_rule" model="ir.rule">
+        <field name="name">Voice Feedback: All users can see all feedback</field>
+        <field name="model_id" ref="model_voice_command_feedback"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="global" eval="True"/>
+    </record>
+
+</odoo>
