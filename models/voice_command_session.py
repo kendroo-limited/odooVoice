@@ -163,7 +163,7 @@ class VoiceCommandSession(models.Model):
                 record.confirmation_required = False
 
     def action_parse(self):
-        """Parse the transcript and extract intent + slots"""
+        """Parse the transcript and extract intent + slots with validation"""
         self.ensure_one()
         router = self.env['voice.intent.router']
 
@@ -177,10 +177,28 @@ class VoiceCommandSession(models.Model):
             })
             self._log('info', 'Parsing completed', result)
 
-            # Check if we have all required slots
+            # Validate slots early (catch issues before state becomes "ready")
+            validation_result = self._validate_slots()
+            if validation_result and not validation_result.get('valid'):
+                # Validation failed - ask clarification question
+                clarification = validation_result.get('clarification', {})
+                self.write({
+                    'missing_slots_json': [clarification.get('slot_name', 'product')],
+                    'next_question_text': clarification.get('question', ''),
+                    'state': 'collecting',
+                })
+                self._log('warning', 'Validation failed during parse', {
+                    'error': clarification.get('message', ''),
+                    'suggestions': clarification.get('suggestions', [])
+                })
+                raise UserError(_(clarification.get('message', 'Validation failed')))
+
+            # All slots valid - check if we have all required slots
             if not self.missing_slots_json or len(self.missing_slots_json) == 0:
                 self.state = 'ready'
 
+        except UserError:
+            raise  # Re-raise UserError as-is
         except Exception as e:
             _logger.exception("Error parsing transcript")
             self._log('error', f'Parsing failed: {str(e)}')
@@ -189,7 +207,7 @@ class VoiceCommandSession(models.Model):
         return True
 
     def action_simulate(self):
-        """Run dry-run simulation with validation"""
+        """Run dry-run simulation (validation already done in parse)"""
         self.ensure_one()
         if not self.intent_key:
             raise UserError(_('No intent identified. Please parse the command first.'))
@@ -204,30 +222,6 @@ class VoiceCommandSession(models.Model):
                     'state': 'ready',
                 })
                 self._log('info', 'Simulation completed', plan)
-
-        except UserError as e:
-            # Validation errors - try to provide helpful alternatives
-            error_msg = str(e)
-            _logger.warning(f"Simulation validation error: {error_msg}")
-
-            # Check if this is a consumable product error
-            if 'consumable' in error_msg.lower() or 'quant' in error_msg.lower():
-                clarification = self._generate_product_clarification()
-                if clarification:
-                    self.write({
-                        'missing_slots_json': ['product'],  # Ask to re-select product
-                        'next_question_text': clarification['question'],
-                        'state': 'collecting',
-                    })
-                    self._log('info', 'Validation failed - asking for product clarification', {
-                        'error': error_msg,
-                        'suggestions': clarification.get('suggestions', [])
-                    })
-                    raise UserError(_(clarification['message']))
-
-            # Other validation errors
-            self._log('error', f'Simulation failed: {error_msg}')
-            raise UserError(_('Simulation failed: %s') % error_msg)
 
         except Exception as e:
             _logger.exception("Error simulating command")
@@ -535,6 +529,42 @@ class VoiceCommandSession(models.Model):
             'message': message,
             'payload_json': payload or {},
         })
+
+    def _validate_slots(self):
+        """Validate extracted slots for logical consistency and data validity"""
+        self.ensure_one()
+
+        if not self.intent_key:
+            return {'valid': True}  # Nothing to validate
+
+        # Check product type compatibility for inventory_adjust
+        if self.intent_key == 'inventory_adjust':
+            product_id_or_name = self.slots_json.get('product')
+            if product_id_or_name:
+                Product = self.env['product.product']
+
+                # Try to find product by ID or name
+                product = None
+                if isinstance(product_id_or_name, int):
+                    product = Product.search([('id', '=', product_id_or_name)], limit=1)
+                else:
+                    product = Product.search([('name', 'ilike', product_id_or_name)], limit=1)
+
+                if product and product.type == 'consu':  # Consumable
+                    # Generate clarification
+                    clarification = self._generate_product_clarification()
+                    if clarification:
+                        return {
+                            'valid': False,
+                            'clarification': {
+                                'slot_name': 'product',
+                                'question': clarification['question'],
+                                'message': clarification['message'],
+                                'suggestions': clarification['suggestions']
+                            }
+                        }
+
+        return {'valid': True}
 
     def _generate_product_clarification(self):
         """Generate clarification question when product type is incompatible with intent"""
