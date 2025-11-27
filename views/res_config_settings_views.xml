@@ -57,6 +57,42 @@
                     </setting>
                 </block>
 
+                <block title="Voice Command AI/LLM Features" id="voice_command_llm_settings">
+                    <setting id="voice_command_use_llm_questions_setting" string="Use LLM for Natural Questions" help="Generate conversational questions using AI (more human-like)">
+                        <field name="use_llm_questions"/>
+                    </setting>
+                    <setting id="voice_command_use_llm_extraction_setting" string="Use LLM for Slot Extraction" help="Use AI to extract information from commands (more accurate but slower)">
+                        <field name="use_llm_extraction"/>
+                    </setting>
+                    <setting id="voice_command_llm_provider_setting" string="LLM Provider" invisible="not use_llm_questions and not use_llm_extraction">
+                        <field name="llm_provider"/>
+                    </setting>
+                    <setting id="voice_command_openai_key_setting" string="OpenAI API Key" invisible="llm_provider != 'openai' or (not use_llm_questions and not use_llm_extraction)">
+                        <field name="openai_api_key" password="True"/>
+                    </setting>
+                    <setting id="voice_command_anthropic_key_setting" string="Anthropic API Key" invisible="llm_provider != 'anthropic' or (not use_llm_questions and not use_llm_extraction)">
+                        <field name="anthropic_api_key" password="True"/>
+                    </setting>
+                    <setting id="voice_command_ollama_url_setting" string="Ollama Server URL" invisible="llm_provider != 'local' or (not use_llm_questions and not use_llm_extraction)">
+                        <field name="ollama_url"/>
+                    </setting>
+                    <setting id="voice_command_ollama_model_setting" string="Ollama Model" invisible="llm_provider != 'local' or (not use_llm_questions and not use_llm_extraction)">
+                        <field name="ollama_model"/>
+                        <div class="content-group" invisible="llm_provider != 'local' or (not use_llm_questions and not use_llm_extraction)">
+                            <div class="mt16">
+                                <button name="%(action_voice_llm_model_downloader)d"
+                                        type="action"
+                                        string="📥 Download/Manage LLM Models"
+                                        class="btn-primary"
+                                        help="Download AI models for offline use"/>
+                                <p class="text-muted" style="margin-top: 8px;">
+                                    Click here to download and manage local AI models (Ollama)
+                                </p>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
+
                 <block title="Voice Command Security &amp; Audit" id="voice_command_security_settings">
                     <setting id="voice_command_restrict_groups_setting" string="Restrict to Specific Groups">
                         <field name="restrict_to_groups"/>

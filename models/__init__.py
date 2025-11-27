@@ -5,3 +5,4 @@ from . import voice_command_log
 from . import voice_intent_template
 from . import res_config_settings
 from . import voice_training
+from . import voice_llm_model_downloader

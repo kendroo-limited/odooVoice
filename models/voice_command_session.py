@@ -91,6 +91,24 @@ class VoiceCommandSession(models.Model):
         string='Execution Result',
         help='Actual execution results with record IDs'
     )
+
+    # Human-readable display fields
+    slots_display = fields.Html(
+        string='Extracted Information',
+        compute='_compute_slots_display',
+        help='Human-readable display of extracted slots'
+    )
+    execution_plan_display = fields.Html(
+        string='Execution Plan Summary',
+        compute='_compute_execution_plan_display',
+        help='Human-readable display of execution plan'
+    )
+    execution_result_display = fields.Html(
+        string='Execution Summary',
+        compute='_compute_execution_result_display',
+        help='Human-readable display of execution results'
+    )
+
     error_message = fields.Text(
         string='Error Message',
         readonly=True
@@ -104,6 +122,24 @@ class VoiceCommandSession(models.Model):
         string='User Confirmed',
         default=False
     )
+    next_question_text = fields.Text(
+        string='Next Question',
+        compute='_compute_next_question',
+        help='The next question to ask the user for missing information'
+    )
+
+    @api.depends('missing_slots_json', 'intent_key', 'transcript')
+    def _compute_next_question(self):
+        """Compute the next question to ask for missing information"""
+        for record in self:
+            if record.missing_slots_json and len(record.missing_slots_json) > 0:
+                question_data = record.get_next_question()
+                if question_data:
+                    record.next_question_text = question_data.get('question', '')
+                else:
+                    record.next_question_text = False
+            else:
+                record.next_question_text = False
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -153,7 +189,7 @@ class VoiceCommandSession(models.Model):
         return True
 
     def action_simulate(self):
-        """Run dry-run simulation"""
+        """Run dry-run simulation with validation"""
         self.ensure_one()
         if not self.intent_key:
             raise UserError(_('No intent identified. Please parse the command first.'))
@@ -168,6 +204,30 @@ class VoiceCommandSession(models.Model):
                     'state': 'ready',
                 })
                 self._log('info', 'Simulation completed', plan)
+
+        except UserError as e:
+            # Validation errors - try to provide helpful alternatives
+            error_msg = str(e)
+            _logger.warning(f"Simulation validation error: {error_msg}")
+
+            # Check if this is a consumable product error
+            if 'consumable' in error_msg.lower() or 'quant' in error_msg.lower():
+                clarification = self._generate_product_clarification()
+                if clarification:
+                    self.write({
+                        'missing_slots_json': ['product'],  # Ask to re-select product
+                        'next_question_text': clarification['question'],
+                        'state': 'collecting',
+                    })
+                    self._log('info', 'Validation failed - asking for product clarification', {
+                        'error': error_msg,
+                        'suggestions': clarification.get('suggestions', [])
+                    })
+                    raise UserError(_(clarification['message']))
+
+            # Other validation errors
+            self._log('error', f'Simulation failed: {error_msg}')
+            raise UserError(_('Simulation failed: %s') % error_msg)
 
         except Exception as e:
             _logger.exception("Error simulating command")
@@ -267,9 +327,26 @@ class VoiceCommandSession(models.Model):
             ], limit=1)
 
             if template:
+                # Handle both dict and JSON string formats
                 slot_schema = template.slot_schema_json or {}
+                if isinstance(slot_schema, str):
+                    import json
+                    try:
+                        slot_schema = json.loads(slot_schema)
+                    except (json.JSONDecodeError, ValueError):
+                        slot_schema = {}
+
                 slot_info = slot_schema.get(next_slot, {})
-                question = slot_info.get('question', f'What is the {next_slot}?')
+
+                # Use LLM assistant to generate natural question
+                llm_assistant = self.env['voice.llm.assistant']
+                question = llm_assistant.generate_natural_question(
+                    next_slot,
+                    slot_info,
+                    self.intent_key,
+                    self.transcript or ''
+                )
+
                 return {
                     'slot': next_slot,
                     'question': question,
@@ -283,6 +360,172 @@ class VoiceCommandSession(models.Model):
             'type': 'text',
         }
 
+    @api.depends('slots_json')
+    def _compute_slots_display(self):
+        """Generate human-readable HTML display of extracted slots"""
+        for record in self:
+            if not record.slots_json or len(record.slots_json) == 0:
+                record.slots_display = '<p style="color: #666; font-style: italic;">No information extracted yet</p>'
+                continue
+
+            html = '<div style="font-family: sans-serif;">'
+            html += '<table style="width: 100%; border-collapse: collapse;">'
+
+            for slot_name, slot_value in record.slots_json.items():
+                # Format slot name (convert snake_case to Title Case)
+                display_name = slot_name.replace('_', ' ').title()
+
+                # Format slot value
+                if isinstance(slot_value, dict):
+                    display_value = '<br>'.join([f'<strong>{k}:</strong> {v}' for k, v in slot_value.items()])
+                elif isinstance(slot_value, list):
+                    display_value = ', '.join([str(item) for item in slot_value])
+                else:
+                    display_value = str(slot_value)
+
+                html += f'''
+                <tr style="border-bottom: 1px solid #e0e0e0;">
+                    <td style="padding: 10px; font-weight: bold; color: #2c3e50; width: 30%;">
+                        {display_name}
+                    </td>
+                    <td style="padding: 10px; color: #34495e;">
+                        {display_value}
+                    </td>
+                </tr>
+                '''
+
+            html += '</table></div>'
+            record.slots_display = html
+
+    @api.depends('execution_plan')
+    def _compute_execution_plan_display(self):
+        """Generate human-readable HTML display of execution plan"""
+        for record in self:
+            if not record.execution_plan or len(record.execution_plan) == 0:
+                record.execution_plan_display = '<p style="color: #666; font-style: italic;">No execution plan available</p>'
+                continue
+
+            plan = record.execution_plan
+            html = '<div style="font-family: sans-serif; padding: 15px; background: #f8f9fa; border-radius: 5px;">'
+
+            # Plan title/description
+            if plan.get('description'):
+                html += f'<p style="font-size: 16px; color: #2c3e50; margin-bottom: 15px;"><strong>{plan["description"]}</strong></p>'
+
+            # Planned actions
+            if plan.get('actions'):
+                html += '<h4 style="color: #2c3e50; margin: 15px 0 10px 0;">📋 Planned Actions:</h4>'
+                html += '<ul style="list-style: none; padding: 0;">'
+                for action in plan['actions']:
+                    if isinstance(action, dict):
+                        action_text = action.get('description', str(action))
+                    else:
+                        action_text = str(action)
+                    html += f'<li style="padding: 5px 0; border-left: 3px solid #007bff; padding-left: 10px; margin-bottom: 5px;">▶ {action_text}</li>'
+                html += '</ul>'
+
+            # Records to create/modify
+            if plan.get('records_to_create'):
+                html += '<h4 style="color: #2c3e50; margin: 15px 0 10px 0;">📝 Records to Create:</h4>'
+                html += '<ul style="list-style: none; padding: 0;">'
+                for record_info in plan['records_to_create']:
+                    if isinstance(record_info, dict):
+                        model = record_info.get('model', 'Unknown')
+                        values = record_info.get('values', {})
+                        html += f'<li style="padding: 8px; background: #e7f3ff; margin-bottom: 5px; border-radius: 3px;"><strong>{model}:</strong> {len(values)} fields</li>'
+                    else:
+                        html += f'<li style="padding: 8px; background: #e7f3ff; margin-bottom: 5px; border-radius: 3px;">{record_info}</li>'
+                html += '</ul>'
+
+            # Risk assessment
+            if plan.get('risk_level'):
+                risk_level = plan['risk_level'].upper()
+                risk_colors = {
+                    'LOW': '#28a745',
+                    'MEDIUM': '#ffc107',
+                    'HIGH': '#dc3545'
+                }
+                risk_color = risk_colors.get(risk_level, '#6c757d')
+                html += f'''
+                <div style="background: {risk_color}20; border-left: 4px solid {risk_color}; padding: 12px; margin-top: 15px; border-radius: 3px;">
+                    <strong style="color: {risk_color};">⚠️ Risk Level: {risk_level}</strong>
+                    {f"<p style='margin: 5px 0 0 0; color: #666;'>{plan.get('risk_message', '')}</p>" if plan.get('risk_message') else ''}
+                </div>
+                '''
+
+            # Additional plan details
+            for key, value in plan.items():
+                if key in ['description', 'actions', 'records_to_create', 'risk_level', 'risk_message']:
+                    continue
+                if isinstance(value, (dict, list)):
+                    continue
+
+                display_key = key.replace('_', ' ').title()
+                html += f'<p style="margin: 10px 0;"><strong>{display_key}:</strong> {value}</p>'
+
+            html += '</div>'
+            record.execution_plan_display = html
+
+    @api.depends('execution_result')
+    def _compute_execution_result_display(self):
+        """Generate human-readable HTML display of execution results"""
+        for record in self:
+            if not record.execution_result or len(record.execution_result) == 0:
+                record.execution_result_display = '<p style="color: #666; font-style: italic;">No execution results yet</p>'
+                continue
+
+            result = record.execution_result
+            html = '<div style="font-family: sans-serif; padding: 15px; background: #f8f9fa; border-radius: 5px;">'
+
+            # Success/failure message
+            if result.get('success'):
+                html += '''
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 12px; margin-bottom: 15px;">
+                    <i class="fa fa-check-circle" style="color: #28a745; margin-right: 8px;"></i>
+                    <strong style="color: #155724;">Execution Successful</strong>
+                </div>
+                '''
+            else:
+                html += '''
+                <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 12px; margin-bottom: 15px;">
+                    <i class="fa fa-exclamation-circle" style="color: #dc3545; margin-right: 8px;"></i>
+                    <strong style="color: #721c24;">Execution Failed</strong>
+                </div>
+                '''
+
+            # Main message
+            if result.get('message'):
+                html += f'<p style="font-size: 16px; color: #2c3e50; margin-bottom: 15px;"><strong>{result["message"]}</strong></p>'
+
+            # Created records
+            if result.get('created_records'):
+                html += '<h4 style="color: #2c3e50; margin: 15px 0 10px 0;">📄 Created Records:</h4>'
+                html += '<ul style="list-style: none; padding: 0;">'
+                for record_info in result['created_records']:
+                    if isinstance(record_info, dict):
+                        model = record_info.get('model', 'Unknown')
+                        name = record_info.get('name', 'Unnamed')
+                        record_id = record_info.get('id', '')
+                        html += f'<li style="padding: 5px 0;">✓ <strong>{model}:</strong> {name} (ID: {record_id})</li>'
+                    else:
+                        html += f'<li style="padding: 5px 0;">✓ {record_info}</li>'
+                html += '</ul>'
+
+            # Other result details
+            for key, value in result.items():
+                if key in ['success', 'message', 'created_records']:
+                    continue
+
+                display_key = key.replace('_', ' ').title()
+
+                if isinstance(value, (dict, list)):
+                    continue  # Skip complex nested structures
+
+                html += f'<p><strong>{display_key}:</strong> {value}</p>'
+
+            html += '</div>'
+            record.execution_result_display = html
+
     def _log(self, level, message, payload=None):
         """Create a log entry"""
         self.ensure_one()
@@ -292,6 +535,57 @@ class VoiceCommandSession(models.Model):
             'message': message,
             'payload_json': payload or {},
         })
+
+    def _generate_product_clarification(self):
+        """Generate clarification question when product type is incompatible with intent"""
+        self.ensure_one()
+
+        if self.intent_key != 'inventory_adjust':
+            return None  # Only handle inventory adjust for now
+
+        # Get the selected product
+        product_name = self.slots_json.get('product', '')
+        if not product_name:
+            return None
+
+        # Find stockable alternatives
+        Product = self.env['product.product']
+        stockable_products = Product.search([
+            ('type', '=', 'product'),  # Only stockable products
+            ('active', '=', True),
+        ], limit=10, order='name')
+
+        if not stockable_products:
+            return None
+
+        # Build suggestion list
+        suggestions = []
+        for prod in stockable_products:
+            suggestions.append({
+                'id': prod.id,
+                'name': prod.name,
+                'type': 'Stockable'
+            })
+
+        # Generate conversational question
+        suggestion_text = ", ".join([f'"{s["name"]}"' for s in suggestions[:5]])
+        if len(suggestions) > 5:
+            suggestion_text += f" and {len(suggestions) - 5} more..."
+
+        question = f"""I found that "{product_name}" is a consumable product and can't track inventory adjustments.
+
+Here are some stockable products you can adjust instead: {suggestion_text}
+
+Which product did you actually mean to adjust?"""
+
+        message = f'The product "{product_name}" is consumable. Suggesting alternatives...'
+
+        return {
+            'question': question,
+            'message': message,
+            'suggestions': suggestions,
+            'product_name': product_name
+        }
 
     def _format_result_summary(self, result):
         """Format execution result as HTML summary"""

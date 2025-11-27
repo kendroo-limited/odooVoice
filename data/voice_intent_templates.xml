@@ -128,7 +128,10 @@ add prospect Jane Smith</field>
   "contact": {
     "required": true,
     "type": "text",
-    "question": "Contact name or company?"
+    "question": "Who is the contact person or company for this lead?",
+    "help": "Please provide the name of the person or company you want to create a lead for",
+    "keywords": ["for", "to", "from", "with", "name", "named", "called"],
+    "patterns": ["(?:lead|opportunity|prospect)\\s+(?:for|to|from|with|name|named|called)\\s+([A-Za-z][A-Za-z\\s]+)", "(?:name|named|called)\\s+([A-Z][a-zA-Z\\s]+)", "(?:contact|person|company)\\s+(?:is|name)?\\s*([A-Z][a-zA-Z\\s]+)"]
   },
   "title": {
     "required": false,

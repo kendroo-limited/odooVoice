@@ -50,24 +50,64 @@
                             <group>
                                 <field name="transcript" widget="text" placeholder="Enter your command..."/>
                             </group>
-                            <group string="Extracted Slots" invisible="not slots_json">
-                                <field name="slots_json" widget="ace" options="{'mode': 'json'}"/>
-                            </group>
+                            <field name="slots_json" invisible="1"/>
+                            <div invisible="not slots_json" style="margin: 20px 0;">
+                                <h3 style="background: #f0f0f0; padding: 12px 15px; margin: 0 0 15px 0; border-left: 4px solid #2c3e50; font-weight: bold;">
+                                    📋 EXTRACTED SLOTS
+                                </h3>
+                                <div style="padding: 0 15px;">
+                                    <field name="slots_display" nolabel="1"/>
+                                </div>
+                            </div>
                             <group string="Missing Information" invisible="not missing_slots_json">
-                                <field name="missing_slots_json" widget="ace" options="{'mode': 'json'}"/>
+                                <div class="alert alert-info" role="alert" style="font-size: 16px; padding: 20px;">
+                                    <h4 style="margin-top: 0;">
+                                        <i class="fa fa-question-circle"/> Question:
+                                    </h4>
+                                    <p style="font-size: 18px; font-weight: 500; margin: 15px 0;">
+                                        <field name="next_question_text" readonly="1" nolabel="1"/>
+                                    </p>
+                                    <hr/>
+                                    <p style="margin-bottom: 0;">
+                                        <strong>💡 How to answer:</strong><br/>
+                                        1. Update the "Original Transcript" field above with your answer<br/>
+                                        2. Click "Parse Command" again to process your response
+                                    </p>
+                                </div>
+                                <group string="Technical Details" invisible="not missing_slots_json">
+                                    <field name="missing_slots_json" widget="ace" options="{'mode': 'json'}" readonly="1"/>
+                                </group>
                             </group>
                         </page>
                         <page string="Execution Plan" name="plan"
                               invisible="not execution_plan">
-                            <field name="execution_plan" widget="ace" options="{'mode': 'json'}"/>
+                            <field name="execution_plan" invisible="1"/>
+                            <div style="margin: 20px 0;">
+                                <h3 style="background: #ffc107; color: #856404; padding: 12px 15px; margin: 0 0 15px 0; border-left: 4px solid #856404; font-weight: bold;">
+                                    🔍 DRY-RUN EXECUTION PLAN
+                                </h3>
+                                <div style="padding: 0 15px;">
+                                    <field name="execution_plan_display" nolabel="1"/>
+                                </div>
+                            </div>
                         </page>
                         <page string="Result" name="result"
                               invisible="state not in ['executed', 'aborted']">
-                            <group>
+                            <div style="padding: 15px;">
                                 <field name="result_summary" widget="html"/>
-                                <field name="execution_result" widget="ace" options="{'mode': 'json'}"/>
-                                <field name="error_message" invisible="not error_message"/>
-                            </group>
+                            </div>
+                            <field name="execution_result" invisible="1"/>
+                            <div invisible="not execution_result" style="margin: 20px 0;">
+                                <h3 style="background: #f0f0f0; padding: 12px 15px; margin: 0 0 15px 0; border-left: 4px solid #28a745; font-weight: bold;">
+                                    ✅ EXECUTION RESULT
+                                </h3>
+                                <div style="padding: 0 15px;">
+                                    <field name="execution_result_display" nolabel="1"/>
+                                </div>
+                            </div>
+                            <div invisible="not error_message" style="margin: 20px 15px;">
+                                <field name="error_message"/>
+                            </div>
                         </page>
                         <page string="Logs" name="logs">
                             <field name="log_ids">

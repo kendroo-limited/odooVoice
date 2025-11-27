@@ -19,6 +19,8 @@ class VoiceIntentRouter(models.AbstractModel):
         """
         Parse natural language text into intent + slots
 
+        Uses LLM disambiguation when top 2 intents have similar scores.
+
         Args:
             text (str): The command text to parse
 
@@ -43,28 +45,60 @@ class VoiceIntentRouter(models.AbstractModel):
         if not templates:
             raise UserError(_('No intent templates configured. Please configure intents first.'))
 
-        # Find matching intent
-        best_match = None
-        best_score = 0.0
-
+        # Find matching intents (get all scores, not just top)
+        matches = []
         for template in templates:
             score = self._match_intent(text, template)
-            if score > best_score:
-                best_score = score
-                best_match = template
+            if score > 0.0:  # Include any match for disambiguation
+                matches.append({
+                    'template': template,
+                    'intent_key': template.key,
+                    'confidence': score
+                })
 
-        if not best_match or best_score < 0.3:
+        if not matches:
             raise UserError(_(
                 'Could not understand the command. Please try rephrasing or check available commands.'
             ))
 
-        _logger.info(f"Matched intent: {best_match.key} (confidence: {best_score:.2f})")
+        # Sort by confidence
+        matches.sort(key=lambda x: x['confidence'], reverse=True)
+
+        # Check if top 2 intents are close (might need LLM disambiguation)
+        best_match = matches[0]
+
+        if len(matches) >= 2:
+            top1_score = matches[0]['confidence']
+            top2_score = matches[1]['confidence']
+            confidence_gap = top1_score - top2_score
+
+            # If gap is small (< 0.15), try LLM to disambiguate
+            disambiguation_gap = float(self.env['ir.config_parameter'].sudo().get_param(
+                'voice_command_hub.intent_disambiguation_gap',
+                '0.15'
+            ))
+
+            if confidence_gap < disambiguation_gap:
+                llm_choice = self._disambiguate_intent_with_llm(
+                    text,
+                    matches[:2]  # Top 2 closest matches
+                )
+                if llm_choice:
+                    best_match = llm_choice
+                    _logger.info(f"LLM disambiguated: {best_match['intent_key']} (gap was {confidence_gap:.2f})")
+
+        if not best_match or best_match['confidence'] < 0.3:
+            raise UserError(_(
+                'Could not understand the command. Please try rephrasing or check available commands.'
+            ))
+
+        _logger.info(f"Matched intent: {best_match['intent_key']} (confidence: {best_match['confidence']:.2f})")
 
         # Extract slots from the text
-        slots = self._extract_slots(text, best_match)
+        slots = self._extract_slots(text, best_match['template'])
 
         # Determine missing required slots
-        schema = best_match.get_slot_schema()
+        schema = best_match['template'].get_slot_schema()
         missing_slots = []
 
         for slot_name, slot_def in schema.items():
@@ -73,18 +107,23 @@ class VoiceIntentRouter(models.AbstractModel):
                 missing_slots.append(slot_name)
 
         return {
-            'intent_key': best_match.key,
+            'intent_key': best_match['intent_key'],
             'slots': slots,
             'missing_slots': missing_slots,
-            'risk_level': best_match.risk_level_default,
-            'confidence': best_score,
-            'template_id': best_match.id,
+            'risk_level': best_match['template'].risk_level_default,
+            'confidence': best_match['confidence'],
+            'template_id': best_match['template'].id,
         }
 
     @api.model
     def _match_intent(self, text, template):
         """
         Calculate match score between text and intent template
+
+        Uses context-aware keyword weighting to resolve ambiguity.
+        Example: "buy" matches differently based on context:
+        - "customer buy from me" → sale_create (customer buying FROM me)
+        - "i buy from vendor" → purchase_create (I buying FROM vendor)
 
         Args:
             text (str): Command text
@@ -123,30 +162,164 @@ class VoiceIntentRouter(models.AbstractModel):
             ratio = difflib.SequenceMatcher(None, text, phrase).ratio()
             max_score = max(max_score, ratio * 0.7)
 
-        # Boost score based on keyword matching
+        # Context-aware keyword weighting
         intent_keywords = self._get_intent_keywords(template.key)
-        for keyword in intent_keywords:
+
+        # Check for negative keywords (strong penalty)
+        has_negative = any(neg in text for neg in intent_keywords.get('negative', []))
+        if has_negative:
+            max_score = max(0.0, max_score - 0.25)  # Strong penalty
+
+        # Check for strong keywords
+        for keyword in intent_keywords.get('strong', []):
             if keyword in text:
-                max_score = min(1.0, max_score + 0.1)
+                max_score = min(1.0, max_score + 0.2)  # Stronger boost
+
+        # Check for weak keywords (only if no negative keywords)
+        if not has_negative:
+            for keyword in intent_keywords.get('weak', []):
+                if keyword in text:
+                    max_score = min(1.0, max_score + 0.08)  # Weaker boost
 
         return max_score
 
     @api.model
     def _get_intent_keywords(self, intent_key):
-        """Get keywords associated with an intent"""
+        """
+        Get context-aware keywords for intent disambiguation
+
+        Returns dict with 'strong', 'weak', and 'negative' keywords for each intent.
+        This prevents ambiguity: "buy" means different things depending on context.
+        """
         keyword_map = {
-            'sale_create': ['sell', 'sale', 'buy', 'purchase', 'from me', 'invoice'],
-            'purchase_create': ['i buy', 'i purchase', 'i order', 'procure', 'vendor'],
-            'inventory_adjust': ['inventory', 'stock', 'update', 'adjust', 'warehouse'],
-            'crm_lead_create': ['lead', 'opportunity', 'prospect', 'contact'],
-            'invoice_register_payment': ['payment', 'pay', 'receive', 'settle'],
+            'sale_create': {
+                'strong': ['sell', 'sold', 'sold to', 'customer', 'customer bought', 'invoice'],
+                'weak': ['buy', 'bought'],  # Only if customer is buying FROM me
+                'negative': ['from', 'vendor', 'supplier', 'i buy', 'i purchase']  # These indicate purchase
+            },
+            'purchase_create': {
+                'strong': ['purchase', 'purchased', 'buy from', 'vendor', 'supplier', 'from vendor'],
+                'weak': ['buy', 'bought'],  # Only if I'm buying FROM vendor/supplier
+                'negative': ['sell', 'customer', 'to', 'invoice', 'sold to']  # These indicate sale
+            },
+            'inventory_adjust': {
+                'strong': ['inventory', 'stock', 'warehouse', 'adjust', 'update'],
+                'weak': ['increase', 'decrease', 'add', 'remove'],
+                'negative': ['sell', 'buy', 'purchase', 'vendor', 'customer']
+            },
+            'crm_lead_create': {
+                'strong': ['lead', 'opportunity', 'prospect', 'new lead', 'new opportunity'],
+                'weak': ['contact', 'company'],
+                'negative': ['sell', 'buy', 'inventory', 'purchase']
+            },
+            'invoice_register_payment': {
+                'strong': ['payment', 'pay', 'settle', 'receive payment', 'payment received'],
+                'weak': ['paid', 'amount'],
+                'negative': ['sell', 'buy', 'inventory', 'lead']
+            },
         }
-        return keyword_map.get(intent_key, [])
+        return keyword_map.get(intent_key, {'strong': [], 'weak': [], 'negative': []})
+
+    @api.model
+    def _disambiguate_intent_with_llm(self, text, top_matches):
+        """
+        Use LLM to disambiguate between close-scoring intents
+
+        Args:
+            text (str): The command text
+            top_matches (list): List of top 2 match dicts with 'intent_key', 'confidence'
+
+        Returns:
+            dict: The chosen match dict, or None if LLM can't decide
+        """
+        # Check if LLM is enabled
+        use_llm = self.env['ir.config_parameter'].sudo().get_param(
+            'voice_command_hub.use_llm_extraction',
+            'False'
+        ) == 'True'
+
+        if not use_llm:
+            return None  # Fall back to rule-based choice
+
+        try:
+            import requests
+
+            # Get Ollama configuration
+            ollama_url = self.env['ir.config_parameter'].sudo().get_param(
+                'voice_command_hub.ollama_url',
+                'http://host.docker.internal:11434'
+            )
+            ollama_model = self.env['ir.config_parameter'].sudo().get_param(
+                'voice_command_hub.ollama_model',
+                'llama2'
+            )
+
+            # Build intent descriptions
+            intent_descriptions = {
+                'sale_create': 'Customer is BUYING FROM me (I am selling to customer)',
+                'purchase_create': 'I am BUYING FROM a vendor (vendor is selling to me)',
+                'inventory_adjust': 'Adjusting stock levels in warehouse (no sale/purchase)',
+                'crm_lead_create': 'Creating a new CRM lead or opportunity',
+                'invoice_register_payment': 'Registering a payment for an invoice',
+            }
+
+            # Build prompt
+            options_text = ""
+            for i, match in enumerate(top_matches, 1):
+                intent_key = match['intent_key']
+                desc = intent_descriptions.get(intent_key, intent_key)
+                options_text += f"{i}. {intent_key}: {desc}\n"
+
+            prompt = f"""Given the user's command, determine which business intent it represents.
+
+User command: "{text}"
+
+Which of these intents matches best?
+
+{options_text}
+
+Answer with ONLY the intent key (e.g., "sale_create" or "purchase_create"), nothing else. No explanation needed.
+"""
+
+            # Call Ollama
+            response = requests.post(
+                f"{ollama_url}/api/generate",
+                json={
+                    'model': ollama_model,
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.1,  # Low temp for consistency
+                        'num_predict': 30,   # Short response
+                    }
+                },
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                llm_choice = result.get('response', '').strip().lower()
+
+                # Clean up response
+                llm_choice = llm_choice.replace('*', '').replace('"', '').strip()
+
+                # Find matching intent from top_matches
+                for match in top_matches:
+                    if match['intent_key'].lower() in llm_choice or llm_choice.endswith(match['intent_key'].lower()):
+                        _logger.info(f"LLM selected intent: {match['intent_key']}")
+                        return match
+
+        except Exception as e:
+            _logger.warning(f"LLM intent disambiguation failed: {e}")
+
+        return None
 
     @api.model
     def _extract_slots(self, text, template):
         """
         Extract slot values from text based on intent template
+
+        Uses LLM extraction (if enabled) with rule-based fallback for accuracy.
 
         Args:
             text (str): Command text
@@ -158,30 +331,56 @@ class VoiceIntentRouter(models.AbstractModel):
         slots = {}
         schema = template.get_slot_schema()
 
-        # Use slot filler service for entity extraction
+        # Check if LLM extraction is enabled
+        use_llm = self.env['ir.config_parameter'].sudo().get_param(
+            'voice_command_hub.use_llm_extraction',
+            'False'
+        ) == 'True'
+
+        llm_assistant = self.env['voice.llm.assistant']
         slot_filler = self.env['voice.slot.filler']
 
         for slot_name, slot_def in schema.items():
             slot_type = slot_def.get('type', 'text')
             value = None
 
-            if slot_type == 'partner':
-                value = slot_filler.extract_partner(text)
-            elif slot_type == 'product':
-                value = slot_filler.extract_product(text)
-            elif slot_type == 'product_lines':
-                value = slot_filler.extract_product_lines(text)
-            elif slot_type == 'quantity':
-                value = slot_filler.extract_quantity(text)
-            elif slot_type == 'money':
-                value = slot_filler.extract_money(text)
-            elif slot_type == 'date':
-                value = slot_filler.extract_date(text)
-            elif slot_type == 'boolean':
-                value = slot_filler.extract_boolean(text, slot_name)
-            elif slot_type == 'text':
-                # Extract text based on patterns or keywords
-                value = slot_filler.extract_text(text, slot_name, slot_def)
+            # Try LLM extraction first if enabled
+            if use_llm:
+                try:
+                    value = llm_assistant.extract_slot_with_llm(
+                        text,
+                        slot_name,
+                        slot_def,
+                        template.key
+                    )
+                    if value:
+                        _logger.info(f"LLM extracted {slot_name}: {value}")
+                except Exception as e:
+                    _logger.warning(f"LLM extraction failed for {slot_name}: {e}")
+                    value = None  # Fall through to rule-based
+
+            # Fallback to rule-based if LLM didn't extract
+            if not value:
+                if slot_type == 'partner':
+                    value = slot_filler.extract_partner(text)
+                elif slot_type == 'product':
+                    value = slot_filler.extract_product(text)
+                elif slot_type == 'product_lines':
+                    value = slot_filler.extract_product_lines(text)
+                elif slot_type == 'quantity':
+                    value = slot_filler.extract_quantity(text)
+                elif slot_type == 'money':
+                    value = slot_filler.extract_money(text)
+                elif slot_type == 'date':
+                    value = slot_filler.extract_date(text)
+                elif slot_type == 'boolean':
+                    value = slot_filler.extract_boolean(text, slot_name)
+                elif slot_type == 'text':
+                    # Extract text based on patterns or keywords
+                    value = slot_filler.extract_text(text, slot_name, slot_def)
+
+                if value:
+                    _logger.debug(f"Rule-based extraction for {slot_name}: {value}")
 
             if value is not None:
                 slots[slot_name] = value

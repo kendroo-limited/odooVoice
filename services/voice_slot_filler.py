@@ -329,9 +329,21 @@ class VoiceSlotFiller(models.AbstractModel):
                 # Extract text after keyword
                 idx = text.lower().find(keyword.lower())
                 after_keyword = text[idx + len(keyword):].strip()
-                # Take first few words
-                words = after_keyword.split()[:3]
-                return ' '.join(words)
+                # Take first few words (up to 5 for names)
+                words = after_keyword.split()[:5]
+                result = ' '.join(words)
+                # Clean up common punctuation
+                result = result.strip('.,;:!?')
+                return result if result else None
+
+        # Special handling for contact/name fields
+        if slot_name in ['contact', 'name', 'title']:
+            # Try to extract capitalized words (likely names)
+            name_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+            matches = re.findall(name_pattern, text)
+            if matches:
+                # Return the longest match (likely the full name)
+                return max(matches, key=len)
 
         return None
 

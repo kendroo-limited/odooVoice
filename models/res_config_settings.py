@@ -154,3 +154,48 @@ class ResConfigSettings(models.TransientModel):
         default=90,
         help='Number of days to retain command logs (0 = forever)'
     )
+
+    # LLM/AI Settings
+    use_llm_questions = fields.Boolean(
+        string='Use LLM for Natural Questions',
+        config_parameter='voice_command_hub.use_llm_questions',
+        default=False,
+        help='Use Large Language Models to generate conversational questions'
+    )
+    use_llm_extraction = fields.Boolean(
+        string='Use LLM for Slot Extraction',
+        config_parameter='voice_command_hub.use_llm_extraction',
+        default=False,
+        help='Use LLM to extract information from commands (more accurate but slower)'
+    )
+    llm_provider = fields.Selection([
+        ('openai', 'OpenAI (GPT-3.5/GPT-4)'),
+        ('anthropic', 'Anthropic (Claude)'),
+        ('local', 'Local LLM (Ollama/llama.cpp)'),
+    ], string='LLM Provider',
+        config_parameter='voice_command_hub.llm_provider',
+        default='openai',
+        help='Which LLM service to use for intelligent features'
+    )
+    openai_api_key = fields.Char(
+        string='OpenAI API Key',
+        config_parameter='voice_command_hub.openai_api_key',
+        help='Your OpenAI API key for GPT models'
+    )
+    anthropic_api_key = fields.Char(
+        string='Anthropic API Key',
+        config_parameter='voice_command_hub.anthropic_api_key',
+        help='Your Anthropic API key for Claude models'
+    )
+    ollama_url = fields.Char(
+        string='Ollama URL',
+        config_parameter='voice_command_hub.ollama_url',
+        default='http://host.docker.internal:11434',
+        help='URL of your Ollama server. Use "host.docker.internal" if Odoo runs in Docker and Ollama on host machine.'
+    )
+    ollama_model = fields.Char(
+        string='Ollama Model',
+        config_parameter='voice_command_hub.ollama_model',
+        default='llama2',
+        help='Model name to use with Ollama (e.g., llama2, mistral, codellama)'
+    )

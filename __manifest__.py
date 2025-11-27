@@ -49,15 +49,18 @@ Examples:
         'data/ir_sequence.xml',
         'data/voice_intent_templates.xml',
 
-        # Views (must load action definitions before menus)
+        # Views
         'views/voice_command_session_views.xml',
         'views/voice_command_log_views.xml',
         'views/voice_intent_template_views.xml',
-        'views/res_config_settings_views.xml',
-        'views/voice_training_views.xml',
+        'views/voice_llm_model_downloader_views.xml',  # Must load before settings (defines action)
+        'views/res_config_settings_views.xml',  # References the downloader action
 
-        # Menus (loaded last since they reference actions)
+        # Root menu (must load before views that contain child menus)
         'views/menu_views.xml',
+
+        # Training views (contains child menu items)
+        'views/voice_training_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
@@ -71,6 +74,9 @@ Examples:
     'demo': [
         'data/demo_data.xml',
     ],
+    'external_dependencies': {
+        'python': ['requests'],
+    },
     'installable': True,
     'application': True,
     'auto_install': False,

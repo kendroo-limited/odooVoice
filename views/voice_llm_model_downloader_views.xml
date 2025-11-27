@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- LLM Model Downloader Wizard Form -->
+    <record id="view_voice_llm_model_downloader_form" model="ir.ui.view">
+        <field name="name">voice.llm.model.downloader.form</field>
+        <field name="model">voice.llm.model.downloader</field>
+        <field name="arch" type="xml">
+            <form string="Download LLM Model">
+                <header>
+                    <button name="action_check_server" string="🔍 Check Server" type="object"
+                            class="btn-secondary"
+                            invisible="download_status == 'downloading'"/>
+                    <button name="action_refresh_status" string="🔄 REFRESH STATUS" type="object"
+                            class="oe_highlight btn-lg"
+                            invisible="download_status != 'downloading'"
+                            help="Click to update download progress"/>
+                    <button name="action_refresh_status" string="🔄 Refresh" type="object"
+                            class="btn-secondary"
+                            invisible="download_status == 'downloading'"/>
+                    <field name="download_status" widget="badge"
+                           decoration-success="download_status == 'completed'"
+                           decoration-info="download_status in ['idle', 'checking']"
+                           decoration-warning="download_status == 'downloading'"
+                           decoration-danger="download_status == 'error'"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <i class="fa fa-download"/> Download LLM Model
+                        </h1>
+                        <p>Download AI models to enable natural language features without API costs</p>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="llm_provider" widget="radio"/>
+                            <field name="ollama_url" invisible="llm_provider != 'ollama'"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="📦 Available Models" name="available_models">
+                            <group>
+                                <field name="selected_model" widget="radio" options="{'horizontal': false}"/>
+                            </group>
+
+                            <div style="margin: 20px 0;">
+                                <h3 style="background: #17a2b8; color: white; padding: 12px 15px; margin: 0 0 0 0; border-radius: 5px 5px 0 0; font-weight: bold;">
+                                    ℹ️ Model Information
+                                </h3>
+                                <div style="background-color: #f8f9fa; padding: 20px; border: 1px solid #17a2b8; border-top: none; border-radius: 0 0 5px 5px;">
+                                    <h4 style="margin-top: 0;">Model Size Guide:</h4>
+                                    <ul style="line-height: 1.8; font-size: 14px;">
+                                        <li><strong>Tiny/Mini (1-3B):</strong> Fast, low memory (~2GB RAM), good for simple tasks</li>
+                                        <li><strong>Small (7B):</strong> Best balance, ~8GB RAM, recommended for most users</li>
+                                        <li><strong>Medium (13B):</strong> Better quality, ~16GB RAM, slower</li>
+                                    </ul>
+                                    <p style="background: #d1ecf1; padding: 10px; border-left: 4px solid #17a2b8; margin-bottom: 0;">
+                                        <strong>💡 Recommended:</strong> Start with <code>mistral</code> or <code>llama2</code> for best results
+                                    </p>
+                                </div>
+                            </div>
+                        </page>
+
+                        <page string="💾 Installed Models" name="installed_models">
+                            <div style="margin: 20px 0;">
+                                <h3 style="background: #007bff; color: white; padding: 12px 15px; margin: 0 0 0 0; border-radius: 5px 5px 0 0; font-weight: bold;">
+                                    💾 Installed Models
+                                </h3>
+                                <div style="border: 1px solid #007bff; border-top: none; border-radius: 0 0 5px 5px; padding: 0;">
+                                    <field name="installed_models" widget="text" nolabel="1"
+                                           style="font-family: monospace; white-space: pre-wrap; font-size: 14px; padding: 20px; background: #f8f9fa; margin: 0; display: block; min-height: 100px;"/>
+                                </div>
+                            </div>
+                        </page>
+
+                        <page string="📊 Download Progress" name="download_progress">
+                            <div invisible="download_status != 'downloading'" style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 5px; padding: 20px; margin: 20px 0; text-align: center;">
+                                <h3 style="color: #856404; margin: 0 0 15px 0;">
+                                    <i class="fa fa-info-circle"/> Download in Progress
+                                </h3>
+                                <p style="font-size: 16px; margin-bottom: 15px;">
+                                    The model is downloading in the background. Click the button below to see current progress.
+                                </p>
+                                <button name="action_refresh_status" string="🔄 REFRESH PROGRESS" type="object"
+                                        class="btn btn-primary btn-lg"
+                                        style="font-size: 18px; padding: 12px 30px;"/>
+                                <p style="font-size: 12px; color: #856404; margin-top: 10px;">
+                                    💡 Tip: Click this button every few seconds to see updated progress
+                                </p>
+                            </div>
+
+                            <group>
+                                <field name="download_status" widget="badge"
+                                       decoration-success="download_status == 'completed'"
+                                       decoration-info="download_status in ['idle', 'checking']"
+                                       decoration-warning="download_status == 'downloading'"
+                                       decoration-danger="download_status == 'error'"/>
+                            </group>
+
+                            <div invisible="not progress_bar_html" style="margin: 20px 0; padding: 0 15px;">
+                                <field name="progress_bar_html" nolabel="1"/>
+                            </div>
+
+                            <div invisible="not download_message" style="margin: 20px 0;">
+                                <h3 style="background: #6c757d; color: white; padding: 12px 15px; margin: 0 0 0 0; border-radius: 5px 5px 0 0; font-weight: bold;">
+                                    📋 Download Details
+                                </h3>
+                                <div style="border: 1px solid #6c757d; border-top: none; border-radius: 0 0 5px 5px; padding: 0;">
+                                    <field name="download_message" widget="text" nolabel="1"
+                                           style="font-family: monospace; white-space: pre-wrap; font-size: 14px; padding: 20px; background: #f8f9fa; margin: 0; display: block;"/>
+                                </div>
+                            </div>
+
+                            <div style="margin: 20px 0;">
+                                <h3 style="background: #28a745; color: white; padding: 12px 15px; margin: 0 0 0 0; border-radius: 5px 5px 0 0; font-weight: bold;">
+                                    📜 Status Log (All Events)
+                                </h3>
+                                <div style="border: 1px solid #28a745; border-top: none; border-radius: 0 0 5px 5px; padding: 15px; background: #000;">
+                                    <div style="color: #0f0; max-height: 400px; overflow-y: auto; font-family: monospace;">
+                                        <field name="status_log" nolabel="1"/>
+                                    </div>
+                                </div>
+                                <p style="font-size: 12px; color: #666; margin-top: 10px; padding: 0 15px;">
+                                    ℹ️ This log shows every step of the download process including all errors.
+                                    Click REFRESH STATUS to see latest updates.
+                                </p>
+                            </div>
+                        </page>
+                    </notebook>
+                </sheet>
+
+                <footer>
+                    <button name="action_download_model" string="⬇️ Download Selected Model"
+                            type="object" class="btn-primary"
+                            invisible="download_status == 'downloading'"/>
+                    <button name="action_delete_model" string="🗑️ Delete Selected Model"
+                            type="object" class="btn-danger"
+                            confirm="Are you sure you want to delete this model? This will free up disk space."
+                            invisible="download_status == 'downloading'"/>
+                    <button string="Close" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action to open the wizard -->
+    <record id="action_voice_llm_model_downloader" model="ir.actions.act_window">
+        <field name="name">Download LLM Models</field>
+        <field name="res_model">voice.llm.model.downloader</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{}</field>
+    </record>
+
+</odoo>
